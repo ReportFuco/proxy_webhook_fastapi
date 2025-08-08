@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from src.config import WEBHOOK_ADT
+from src.config import *
 from src.logger import logger
 from src.utils import *
 
@@ -11,9 +11,13 @@ async def proxy_webhook(request: Request):
     body: dict = await request.json()
 
     number, conversation = extract_whatsapp_info(body)
+    mensaje, base_64 = detectar_base64(body)
 
-    logger.info(f"Mensaje recibido de: {number} - Contenido: '{conversation}'")
-
+    if base_64 and "extrae" in mensaje.lower() and "texto" in mensaje.lower():
+        texto_foto = detectar_texto(base_64)
+        await forward_message(WEBHOOK_SCANNER, body={"texto encontrado": texto_foto})
+        await enviar_mensaje_whatsapp(number=number, message=texto_foto)
+        
     if not number:
         logger.warning("No se pudo obtener el número del mensaje.")
         return {"status": "error", "detail": "remoteJid no encontrado"}
@@ -23,7 +27,7 @@ async def proxy_webhook(request: Request):
         logger.info(f"Mensaje reenviado al webhook personal desde {number}")
         return {"status": "enviado"}
 
-    logger.warning(f"Número no autorizado: {number}")
+    
     return {"status": "usuario no permitido"}
 
 
