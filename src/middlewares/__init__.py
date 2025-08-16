@@ -1,0 +1,1 @@
+from src.middlewares.logger import logger

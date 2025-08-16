@@ -4,6 +4,9 @@ import os
 
 load_dotenv()
 
+# Conección a la base de datos
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+
 # Automatización ADT
 WEBHOOK_ADT:str = os.getenv("WEBHOOK_ADT")
 
