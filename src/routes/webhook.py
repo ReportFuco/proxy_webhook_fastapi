@@ -1,39 +1,35 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from src.models import Webhooks, Usuarios
+from src.models import Webhooks
 from src.db import get_db
-from typing import List
 from src.schemas import WebhookBase, WebhookCreate, WebhookConUsuarios
 from sqlalchemy.orm import Session
-
+from src.utils import extract_whatsapp_info, detectar_base64, forward_message
+from src.crud import usuario_tiene_acceso_webhook, obtener_webhook_por_id
+from src.middlewares.logger import logger
 
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
-# @router.post("/")
-# async def proxy_webhook(request: Request, db:Session=Depends(get_db)):
-#     body: dict = await request.json()
+@router.post("/")
+async def proxy_webhook(request: Request, db:Session=Depends(get_db)):
+    body: dict = await request.json()
+    number, conversation = extract_whatsapp_info(body) 
+    mensaje, base_64 = detectar_base64(body)
 
-#     number, conversation = extract_whatsapp_info(body) 
-#     mensaje, base_64 = detectar_base64(body)
+    number:str = number.replace("@s.whatsapp.net", "")
 
-#     usuario = db.query(Usuarios).filter(Usuarios.numero == number).first()
-
-
-#     if base_64 and "extrae" in mensaje.lower() and "texto" in mensaje.lower():
-#         texto_foto = detectar_texto(base_64)
-#         await forward_message(WEBHOOK_SCANNER, body={"texto encontrado": texto_foto})
-#         await enviar_mensaje_whatsapp(number=number, message=texto_foto)
+    # if base_64 and "extrae" in mensaje.lower() and "texto" in mensaje.lower():
+    #     texto_foto = detectar_texto(base_64)
+    #     await forward_message(WEBHOOK_SCANNER, body={"texto encontrado": texto_foto})
+    #     await enviar_mensaje_whatsapp(number=number, message=texto_foto)
         
-#     if not number:
-#         logger.warning("No se pudo obtener el número del mensaje.")
-#         return {"status": "error", "detail": "remoteJid no encontrado"}
+    if not number:
+        logger.warning("No se pudo obtener el número del mensaje.")
+        return {"status": "error", "detail": "remoteJid no encontrado"}
 
-#     if number_adt(number):
-#         await forward_message(WEBHOOK_ADT, body)
-#         logger.info(f"Mensaje reenviado al webhook personal desde {number}")
-#         return {"status": "enviado"}
+    if usuario_tiene_acceso_webhook(numero=number, db=db, webhook_id="98182190-905b-4282-8e18-db23fac0a0ae"):
+        await forward_message(obtener_webhook_por_id(db=db, id="98182190-905b-4282-8e18-db23fac0a0ae"), body)
 
-    
-#     return {"status": "usuario no permitido"}
+    return {"status": "usuario no permitido"}
 
 
 @router.get("/{id}/usuarios", response_model=WebhookConUsuarios)
